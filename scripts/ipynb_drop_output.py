@@ -12,29 +12,27 @@ The notebooks themselves are not changed.
 
 See also this blogpost: http://pascalbugnion.net/blog/ipython-notebooks-and-git.html.
 
-Modified by Michael S. Hansen (michael.schacht.hansen@gmail.com) to filter unless preserve_output is true.
+Modified by Michael S. Hansen (michael.schacht.hansen@gmail.com) to 
+
+1. Filter unless preserve_output is true.
+2. Added option to preserve_output on individual cells.
+3. Added execution_count to list of of stuff that gets removed. 
+4. Changed instructions to add the script to the repo instead. 
 
 Usage instructions
 ==================
 
-1. Put this script in a directory that is on the system's path.
-   For future reference, I will assume you saved it in 
-   `~/scripts/ipynb_drop_output`.
+1. Put this script in a directory within the repo, say `scripts/ipynb_drop_output.py`
 2. Make sure it is executable by typing the command
-   `chmod +x ~/scripts/ipynb_drop_output`.
+   `chmod +x scripts/ipynb_drop_output.py`.
 3. Register a filter for ipython notebooks by
-   putting the following line in `~/.config/git/attributes`:
-   `*.ipynb  filter=clean_ipynb`
-4. Connect this script to the filter by running the following 
-   git commands:
+   putting the following line in `.gitattributes`:
+   `*.ipynb filter=clean_ipynb`
+4. Connect this script to the filter by adding the following to `.git/config` in the repo:
 
-   git config --global filter.clean_ipynb.clean ipynb_drop_output
-   git config --global filter.clean_ipynb.smudge cat
-
-   Alternatively use (for current repo only):
-   
-   git config --local filter.clean_ipynb.clean ipynb_drop_output
-   git config --local filter.clean_ipynb.smudge cat
+   [filter "clean_ipynb"]
+	smudge = cat
+	clean = $(git rev-parse --git-dir)/../scripts/ipynb_drop_output.py
 
 To tell git to preserve the output and prompts for a notebook,
 open the notebook's metadata (Edit > Edit Notebook Metadata). A
@@ -55,6 +53,13 @@ Add an extra line so that the metadata now looks like:
 
 You may need to "touch" the notebooks for git to actually register a change, if
 your notebooks are already under version control.
+
+To preserve the output for a single cell, edit the cell metadata:
+
+1. (View > Cell Toobar > Edit Metadata)
+2. Click edit metadata button
+3. Add:
+   "git" : { "preserve_output" : true }
 
 Notes
 =====
@@ -83,14 +88,16 @@ if not suppress_output:
 ipy_version = int(json_in["nbformat"])-1 # nbformat is 1 more than actual version.
 
 def strip_output_from_cell(cell):
-    if "outputs" in cell:
+    del_o = True
+    if "metadata" in cell and "git" in cell["metadata"] and "preserve_output" in cell["metadata"]["git"] and cell["metadata"]["git"]["preserve_output"]:
+        del_o = False
+    if "outputs" in cell and del_o:
         cell["outputs"] = []
     if "prompt_number" in cell:
         del cell["prompt_number"]
     if "execution_count" in cell:
         del cell["execution_count"]
-
-
+            
 if ipy_version == 2:
     for sheet in json_in["worksheets"]:
         for cell in sheet["cells"]:
